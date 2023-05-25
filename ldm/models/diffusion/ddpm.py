@@ -397,6 +397,11 @@ class DDPM(pl.LightningModule):
         return (extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
                 extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise)
 
+    def q_sample_respace(self, x_start, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, noise=None):
+        noise = default(noise, lambda: torch.randn_like(x_start))
+        return (extract_into_tensor(sqrt_alphas_cumprod.to(noise.device), t, x_start.shape) * x_start +
+                extract_into_tensor(sqrt_one_minus_alphas_cumprod.to(noise.device), t, x_start.shape) * noise)
+
     def get_v(self, x, noise, t):
         return (
                 extract_into_tensor(self.sqrt_alphas_cumprod, t, x.shape) * noise -
@@ -2054,7 +2059,7 @@ class LatentDiffusionSRTextWT(DDPM):
                     mode='bicubic',
                     )
 
-        if random.random() < self.configs.degradation['no_degradation_prob']:
+        if random.random() < self.configs.degradation['no_degradation_prob'] or torch.isnan(self.lq).any():
             self.lq = self.gt
 
         # training pair pool
